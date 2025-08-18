@@ -44,8 +44,8 @@
 </template>
 <script lang="ts" setup>
 import { computed, onMounted, reactive, ref } from 'vue'
-import { deleteUser, listUserVoByPage } from '@/api/userController.ts'
 import { message } from 'ant-design-vue'
+import { deleteUser, listUserVoByPage } from '@/api/userController.ts'
 import dayjs from 'dayjs'
 
 const columns = [
@@ -78,12 +78,16 @@ const columns = [
     dataIndex: 'createTime',
   },
   {
+    title: '更新时间',
+    dataIndex: 'updateTime',
+  },
+  {
     title: '操作',
     key: 'action',
   },
 ]
 
-// 展示的数据
+// 数据
 const data = ref<API.UserVO[]>([])
 const total = ref(0)
 
@@ -106,6 +110,11 @@ const fetchData = async () => {
   }
 }
 
+// 页面加载时请求一次
+onMounted(() => {
+  fetchData()
+})
+
 // 分页参数
 const pagination = computed(() => {
   return {
@@ -117,13 +126,14 @@ const pagination = computed(() => {
   }
 })
 
-// 表格分页变化时的操作
-const doTableChange = (page: any) => {
+// 表格变化处理
+const doTableChange = (page: { current: number; pageSize: number }) => {
   searchParams.pageNum = page.current
   searchParams.pageSize = page.pageSize
   fetchData()
 }
 
+// 获取数据
 const doSearch = () => {
   // 重置页码
   searchParams.pageNum = 1
@@ -131,7 +141,7 @@ const doSearch = () => {
 }
 
 // 删除数据
-const doDelete = async (id: string) => {
+const doDelete = async (id: number) => {
   if (!id) {
     return
   }
@@ -144,14 +154,12 @@ const doDelete = async (id: string) => {
     message.error('删除失败')
   }
 }
-
-// 页面加载时请求一次
-onMounted(() => {
-  fetchData()
-})
 </script>
 
-<style>
+<style scoped>
 #userManagePage {
+  padding: 24px;
+  background: white;
+  margin-top: 16px;
 }
 </style>
