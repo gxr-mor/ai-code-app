@@ -15,18 +15,22 @@ import com.gxr.codegenerate.mapper.AppMapper;
 import com.gxr.codegenerate.model.dto.app.AppQueryRequest;
 import com.gxr.codegenerate.model.entity.App;
 import com.gxr.codegenerate.model.entity.User;
+import com.gxr.codegenerate.model.enums.ChatHistoryMessageTypeEnum;
 import com.gxr.codegenerate.model.enums.CodeGenTypeEnum;
 import com.gxr.codegenerate.model.vo.AppVo.AppVO;
 import com.gxr.codegenerate.model.vo.UserVo.UserVO;
 import com.gxr.codegenerate.service.AppService;
+import com.gxr.codegenerate.service.ChatHistoryService;
 import com.gxr.codegenerate.service.UserService;
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.spring.service.impl.ServiceImpl;
 import jakarta.annotation.Resource;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 
 import java.io.File;
+import java.io.Serializable;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -40,6 +44,7 @@ import java.util.stream.Collectors;
  * @author gxr
  */
 @Service
+@Slf4j
 public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppService {
 
     @Resource
@@ -47,6 +52,9 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
 
     @Resource
     private AiCodeGeneratorFacade aiCodeGeneratorFacade;
+
+    @Resource
+    private ChatHistoryService chatHistoryService;
 
 
     @Override
@@ -67,9 +75,55 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         if (codeGenTypeEnum == null) {
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "不支持的代码生成类型");
         }
-        // 5. 调用 AI 生成代码
-        return aiCodeGeneratorFacade.generateAndSaveCodeStream(message, codeGenTypeEnum, appId);
+        // 5. 通过校验以后，添加用户消息到对话历史
+        chatHistoryService.addChatMessage(appId, message, ChatHistoryMessageTypeEnum.USER.getValue(), loginUser.getId());
+        // 6. 调用 AI 生成代码
+        Flux<String> contentFlux = aiCodeGeneratorFacade.generateAndSaveCodeStream(message, codeGenTypeEnum, appId);
+        // 7.AI流式响应内容完成以后,把生成内容插入到对话历史中
+        StringBuilder aiResponseContent = new StringBuilder();
+        return contentFlux.map(chunk -> {
+            // 收集AI的响应内容片段
+            aiResponseContent.append(chunk);
+            return chunk;
+        }).doOnComplete(() -> {
+            // 响应流结束以后,把AI回复的消息插入到历史对话中去
+            String res = aiResponseContent.toString();
+            if (StrUtil.isNotBlank(res)) {
+                chatHistoryService.addChatMessage(appId, res, ChatHistoryMessageTypeEnum.AI.getValue(), loginUser.getId());
+            }
+        }).doOnError(error -> {
+            // 响应流异常以后,把异常信息插入到对话历史中
+            chatHistoryService.addChatMessage(appId, error.getMessage(), ChatHistoryMessageTypeEnum.AI.getValue(), loginUser.getId());
+        });
     }
+
+    /**
+     * 删除应用时关联删除对话历史
+     *
+     * @param id 应用ID
+     * @return 是否成功
+     */
+    @Override
+    public boolean removeById(Serializable id) {
+        if (id == null) {
+            return false;
+        }
+        // 转换为 Long 类型
+        Long appId = Long.valueOf(id.toString());
+        if (appId <= 0) {
+            return false;
+        }
+        // 先删除关联的对话历史
+        try {
+            chatHistoryService.deleteByAppId(appId);
+        } catch (Exception e) {
+            // 记录日志但不阻止应用删除
+            log.error("删除应用关联对话历史失败: {}", e.getMessage());
+        }
+        // 删除应用
+        return super.removeById(id);
+    }
+
 
     @Override
     public String deployApp(Long appId, User loginUser) {

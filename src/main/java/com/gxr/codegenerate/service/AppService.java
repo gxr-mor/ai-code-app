@@ -8,6 +8,7 @@ import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.core.service.IService;
 import reactor.core.publisher.Flux;
 
+import java.io.Serializable;
 import java.util.List;
 
 /**
@@ -16,6 +17,8 @@ import java.util.List;
  * @author gxr
  */
 public interface AppService extends IService<App> {
+
+    boolean removeById(Serializable id);
 
     String deployApp(Long appId, User loginUser);
 
