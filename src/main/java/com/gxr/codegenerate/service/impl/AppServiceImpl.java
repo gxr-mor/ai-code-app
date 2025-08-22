@@ -8,6 +8,7 @@ import cn.hutool.core.util.RandomUtil;
 import cn.hutool.core.util.StrUtil;
 import com.gxr.codegenerate.constant.AppConstant;
 import com.gxr.codegenerate.core.AiCodeGeneratorFacade;
+import com.gxr.codegenerate.core.handler.StreamHandlerExecutor;
 import com.gxr.codegenerate.exception.BusinessException;
 import com.gxr.codegenerate.exception.ErrorCode;
 import com.gxr.codegenerate.exception.ThrowUtils;
@@ -56,6 +57,9 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
     @Resource
     private ChatHistoryService chatHistoryService;
 
+    @Resource
+    private StreamHandlerExecutor streamHandlerExecutor;
+
 
     @Override
     public Flux<String> chatToGenCode(Long appId, String message, User loginUser) {
@@ -80,21 +84,7 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         // 6. 调用 AI 生成代码
         Flux<String> contentFlux = aiCodeGeneratorFacade.generateAndSaveCodeStream(message, codeGenTypeEnum, appId);
         // 7.AI流式响应内容完成以后,把生成内容插入到对话历史中
-        StringBuilder aiResponseContent = new StringBuilder();
-        return contentFlux.map(chunk -> {
-            // 收集AI的响应内容片段
-            aiResponseContent.append(chunk);
-            return chunk;
-        }).doOnComplete(() -> {
-            // 响应流结束以后,把AI回复的消息插入到历史对话中去
-            String res = aiResponseContent.toString();
-            if (StrUtil.isNotBlank(res)) {
-                chatHistoryService.addChatMessage(appId, res, ChatHistoryMessageTypeEnum.AI.getValue(), loginUser.getId());
-            }
-        }).doOnError(error -> {
-            // 响应流异常以后,把异常信息插入到对话历史中
-            chatHistoryService.addChatMessage(appId, error.getMessage(), ChatHistoryMessageTypeEnum.AI.getValue(), loginUser.getId());
-        });
+        return streamHandlerExecutor.doExecute(contentFlux, chatHistoryService, appId, loginUser, codeGenTypeEnum);
     }
 
     /**
