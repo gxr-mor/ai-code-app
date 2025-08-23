@@ -2,12 +2,7 @@
   <a-layout-footer class="footer">
     <div class="footer-content">
       <p class="copyright">
-        <a
-          href="https://www.codefather.cn"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="author-link"
-        >
+        <a target="_blank" rel="noopener noreferrer" class="author-link">
           AI网站应用生成平台项目
         </a>
       </p>
