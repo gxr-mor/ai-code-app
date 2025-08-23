@@ -9,7 +9,7 @@ import com.gxr.codegenerate.model.enums.CodeGenTypeEnum;
 /**
  * HTML代码文件保存器
  *
- * @author yupi
+ * @author gxr
  */
 public class HtmlCodeFileSaverTemplate extends CodeFileSaverTemplate<HtmlCodeResult> {
 
