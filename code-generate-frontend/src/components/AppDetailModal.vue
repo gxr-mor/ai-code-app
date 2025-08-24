@@ -53,6 +53,7 @@ import { computed } from 'vue'
 import { EditOutlined, DeleteOutlined } from '@ant-design/icons-vue'
 import UserInfo from './UserInfo.vue'
 import { formatTime } from '@/utils/time'
+import { formatCodeGenType } from '@/utils/codeGenTypes.ts'
 
 interface Props {
   open: boolean
