@@ -2,7 +2,7 @@ package com.gxr.codegenerate.ai;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
-import com.gxr.codegenerate.ai.tools.FileWriteTool;
+import com.gxr.codegenerate.ai.tools.ToolManager;
 import com.gxr.codegenerate.exception.BusinessException;
 import com.gxr.codegenerate.exception.ErrorCode;
 import com.gxr.codegenerate.model.enums.CodeGenTypeEnum;
@@ -38,6 +38,9 @@ public class AiCodeGeneratorServiceFactory {
 
     @Resource
     private ChatHistoryService chatHistoryService;
+
+    @Resource
+    private ToolManager toolManager;
 
     @Bean
     public AiCodeGeneratorService aiCodeGeneratorService() {
@@ -104,7 +107,7 @@ public class AiCodeGeneratorServiceFactory {
             case VUE_PROJECT -> AiServices.builder(AiCodeGeneratorService.class)
                     .streamingChatModel(reasoningStreamingChatModel)
                     .chatMemoryProvider(memoryId -> chatMemory)
-                    .tools(new FileWriteTool())
+                    .tools(toolManager.getAllTools())
                     .hallucinatedToolNameStrategy(toolExecutionRequest -> ToolExecutionResultMessage
                             .from(toolExecutionRequest, "Error: there is no tool named" + toolExecutionRequest.name()))
                     .build();
